@@ -1,0 +1,22 @@
+databases:
+  - name: gestion-db
+    databaseName: gestion
+    user: gestion
+    plan: free
+
+services:
+  - type: web
+    name: gestion-pisco-ica
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gestion-db
+          property: connectionString
+      - key: APP_TOKEN
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.12.4"

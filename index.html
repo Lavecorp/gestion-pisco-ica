@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero de Gestión — Corredor Pisco–Ica</title>
+<style>
+:root{color-scheme:light;--navy:#1F3864;--blue:#2E75B6;--grey:#F2F2F2;--ok:#2E7D32;--warn:#C62828;--amber:#B7791F;
+--line:#e3e8ef;--bg:#f6f8fb;--card:#fff;--txt:#1a2333;--mut:#6b7788;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Arial,Helvetica,sans-serif;font-size:13px}
+.wrap{padding:16px 18px 40px}
+h1{font-size:19px;margin:0 0 2px;color:var(--navy)}
+.sub{color:var(--mut);font-size:12px;margin-bottom:14px}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:120px}
+.kpi .v{font-size:22px;font-weight:700;color:var(--navy)} .kpi .l{font-size:11px;color:var(--mut);margin-top:3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{font-size:13px;margin:0 0 12px;color:var(--navy);text-transform:uppercase;letter-spacing:.4px}
+.pipe{display:flex;overflow-x:auto;padding-bottom:4px}
+.stage{flex:1 0 120px;padding:10px 12px 10px 24px;background:var(--grey);margin-right:2px;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%,14px 50%)}
+.stage:first-child{padding-left:14px;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%)}
+.stage .sn{font-size:11px;color:var(--navy);font-weight:700}.stage .sc{font-size:20px;font-weight:700;color:var(--navy)}.stage .sp{font-size:10px;color:var(--mut)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+select,input,textarea{font-family:inherit;font-size:12px;border:1px solid #cdd6e2;border-radius:6px;padding:4px 6px;background:#fff;color:var(--txt)}
+.controls select,.controls input{padding:5px 8px}
+.btn{background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:max-content;min-width:100%}
+th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
+th{background:var(--navy);color:#fff;font-size:11px;position:sticky;top:0;white-space:nowrap}
+tr:nth-child(even) td{background:#fafcff} td.fix{background:#fff}
+.razon{font-weight:700;color:var(--navy)} .muted{color:var(--mut);font-size:11px}
+.tbl-in{width:100%;border:none;background:transparent;padding:3px 2px;font-size:12px}
+.tbl-in:focus{background:#fffbe6;outline:1px solid var(--blue)}
+td input.num{width:78px} td input.dt{width:120px}
+.foot{color:var(--mut);font-size:11px} .warnbox{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:8px 12px;font-size:12px;color:#6b5a1f;margin-bottom:14px}
+#gate{position:fixed;inset:0;background:rgba(20,30,50,.55);display:none;align-items:center;justify-content:center;z-index:50}
+#gate .box{background:#fff;border-radius:12px;padding:22px 24px;width:340px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+#gate h3{margin:0 0 6px;color:var(--navy)} #gate p{margin:0 0 12px;color:var(--mut);font-size:12px}
+#gate input{width:100%;margin-bottom:10px;padding:8px}
+.status{font-size:11px;padding:2px 8px;border-radius:10px}
+.status.ok{background:#e2efda;color:var(--ok)} .status.err{background:#fde7e7;color:var(--warn)} .status.sav{background:#e7f0fb;color:var(--blue)}
+</style>
+</head>
+<body>
+<div id="gate"><div class="box">
+  <h3>Acceso al tablero</h3>
+  <p>Ingresa el token compartido del equipo (variable APP_TOKEN en Render).</p>
+  <input type="password" id="tokenInput" placeholder="Token de acceso">
+  <button class="btn" id="tokenBtn" style="width:100%">Entrar</button>
+  <div id="gateErr" style="color:var(--warn);font-size:12px;margin-top:8px"></div>
+</div></div>
+
+<div class="wrap">
+  <h1>Tablero de Gestión Comercial — Generadores Corredor Pisco–Ica</h1>
+  <div class="sub">Pipeline compartido en vivo (PostgreSQL). Los cambios se guardan en el servidor y los ve todo el equipo. <span id="conn" class="status"></span></div>
+  <div class="warnbox">Razón social y RUC verificados en fuentes públicas (validar en SUNAT). Los campos de contacto y gestión se completan aquí; quedan guardados en la base de datos.</div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>Pipeline lineal por etapa</h2>
+    <div class="pipe" id="pipe"></div>
+  </div>
+
+  <div class="card">
+    <h2>Gestión detallada (una línea por cuenta)</h2>
+    <div class="controls">
+      <input type="text" id="q" placeholder="Buscar cuenta, RUC, planta…" style="min-width:220px">
+      <select id="fSector"></select><select id="fPrio"></select><select id="fEtapa"></select>
+      <button class="btn sec" id="clear">Limpiar filtros</button>
+      <button class="btn" id="csv">Exportar CSV</button>
+      <button class="btn sec" id="reload">Recargar</button>
+      <input type="text" id="who" placeholder="Tu nombre (para auditoría)" style="min-width:170px">
+      <span class="foot" id="stamp"></span>
+    </div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </div>
+</div>
+
+<script>
+const STAGES=["Prospecto","Contactado","Reunión","Visita técnica","Propuesta","Negociación","Homologación","Cerrado - ganado","Cerrado - perdido"];
+let TOKEN=localStorage.getItem("app_token")||"";
+let AUTH_REQUIRED=true;
+let state=[];
+
+function headers(){const h={"Content-Type":"application/json"};if(TOKEN)h["X-App-Token"]=TOKEN;return h;}
+function setConn(t,cls){const e=document.getElementById('conn');e.textContent=t;e.className="status "+cls;}
+
+async function api(path,opts={}){
+  const r=await fetch(path,Object.assign({headers:headers()},opts));
+  if(r.status===401){throw {code:401};}
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return r.status===204?null:r.json();
+}
+
+async function boot(){
+  try{const cfg=await fetch("/api/config").then(r=>r.json());AUTH_REQUIRED=cfg.auth_required;}catch(e){}
+  if(AUTH_REQUIRED && !TOKEN){showGate();return;}
+  await loadData();
+}
+function showGate(msg){document.getElementById('gate').style.display='flex';if(msg)document.getElementById('gateErr').textContent=msg;}
+document.getElementById('tokenBtn').onclick=async()=>{
+  TOKEN=document.getElementById('tokenInput').value.trim();
+  try{await api("/api/accounts");localStorage.setItem("app_token",TOKEN);document.getElementById('gate').style.display='none';await loadData();}
+  catch(e){document.getElementById('gateErr').textContent="Token inválido, intenta de nuevo.";}
+};
+
+async function loadData(){
+  try{state=await api("/api/accounts");setConn("Conectado","ok");initFilters();renderAll();document.getElementById('stamp').textContent="";}
+  catch(e){if(e.code===401){TOKEN="";localStorage.removeItem("app_token");showGate("Sesión expirada, ingresa el token.");}else{setConn("Sin conexión","err");}}
+}
+
+function uniq(a){return [...new Set(a)];}
+function fillSelect(el,label,vals){el.innerHTML="<option value=''>"+label+"</option>"+vals.map(v=>`<option>${v}</option>`).join("");}
+function initFilters(){
+  fillSelect(document.getElementById('fSector'),"Todos los sectores",uniq(state.map(r=>r.sector)));
+  fillSelect(document.getElementById('fPrio'),"Toda prioridad",["Alta","Media","Baja"]);
+  fillSelect(document.getElementById('fEtapa'),"Toda etapa",STAGES);
+}
+function filters(){return{q:document.getElementById('q').value.toLowerCase(),sector:document.getElementById('fSector').value,prio:document.getElementById('fPrio').value,etapa:document.getElementById('fEtapa').value};}
+function filtered(){const f=filters();return state.filter(r=>{
+  if(f.sector&&r.sector!==f.sector)return false;if(f.prio&&r.prioridad!==f.prio)return false;if(f.etapa&&r.etapa!==f.etapa)return false;
+  if(f.q){const b=(r.razon+" "+r.comercial+" "+r.ruc+" "+r.planta+" "+r.residuos).toLowerCase();if(!b.includes(f.q))return false;}return true;});}
+
+function renderKpis(){
+  const total=state.length,alta=state.filter(r=>r.prioridad==="Alta").length,activos=state.filter(r=>r.estado==="Activo").length;
+  const enruta=state.filter(r=>!["Prospecto","Cerrado - perdido"].includes(r.etapa)).length,ganados=state.filter(r=>r.etapa==="Cerrado - ganado").length;
+  const valor=state.reduce((a,r)=>a+(parseFloat(r.valor)||0),0),pond=state.reduce((a,r)=>a+((parseFloat(r.valor)||0)*(parseFloat(r.prob)||0)/100),0);
+  const k=[["Cuentas totales",total],["Prioridad Alta",alta],["Activas",activos],["En movimiento",enruta],["Ganadas",ganados],
+    ["Valor pipeline (S/ mes)",valor?valor.toLocaleString('es-PE'):"—"],["Ponderado x prob.",pond?Math.round(pond).toLocaleString('es-PE'):"—"]];
+  document.getElementById('kpis').innerHTML=k.map(x=>`<div class="kpi"><div class="v">${x[1]}</div><div class="l">${x[0]}</div></div>`).join("");
+}
+function renderPipe(){
+  const tot=state.length||1;
+  document.getElementById('pipe').innerHTML=STAGES.map(s=>{const c=state.filter(r=>r.etapa===s).length;const pct=Math.round(c/tot*100);
+    const bg=s.startsWith("Cerrado - g")?"#e2efda":s.startsWith("Cerrado - p")?"#fde7e7":"";
+    return `<div class="stage" style="${bg?'background:'+bg:''}"><div class="sn">${s}</div><div class="sc">${c}</div><div class="sp">${pct}%</div></div>`;}).join("");
+}
+function inp(r,f,cls,type){type=type||"text";const v=r[f]??"";return `<input class="tbl-in ${cls||''}" data-id="${r.id}" data-f="${f}" type="${type}" value="${String(v).replace(/"/g,'&quot;')}">`;}
+function sel(r,f,opts){return `<select class="tbl-in" data-id="${r.id}" data-f="${f}">`+opts.map(o=>`<option ${r[f]===o?'selected':''}>${o}</option>`).join("")+`</select>`;}
+const COLS=[
+ ["N°",r=>`<span class="muted">${r.id}</span>`,"fix"],["Prioridad",r=>sel(r,"prioridad",["Alta","Media","Baja"]),""],
+ ["Sector",r=>`<span class="muted">${r.sector}</span>`,"fix"],
+ ["Razón social",r=>`<div class="razon">${r.razon}</div><div class="muted">${r.comercial}</div>`,"fix"],
+ ["RUC",r=>`<span class="muted">${r.ruc}</span>`,"fix"],["Planta / ubicación",r=>`<span class="muted">${r.planta}</span>`,"fix"],
+ ["Residuos",r=>`<span class="muted">${r.residuos}</span>`,"fix"],["Tipo",r=>`<span class="muted">${r.tipo}</span>`,"fix"],
+ ["Tonelaje (t/mes)",r=>inp(r,"tonelaje","num","number"),""],["Operador actual",r=>inp(r,"operador"),""],
+ ["Venc. contrato",r=>inp(r,"vencimiento","dt","date"),""],["Contacto operac.",r=>inp(r,"contacto"),""],
+ ["Cargo",r=>inp(r,"cargo"),""],["Correo",r=>inp(r,"correo"),""],["Celular",r=>inp(r,"celular"),""],
+ ["Etapa",r=>sel(r,"etapa",STAGES),""],["Últ. contacto",r=>inp(r,"ultimo_contacto","dt","date"),""],
+ ["Próxima acción",r=>inp(r,"proxima_accion"),""],["Fecha próx.",r=>inp(r,"fecha_proxima","dt","date"),""],
+ ["Responsable",r=>inp(r,"responsable"),""],["Valor (S/ mes)",r=>inp(r,"valor","num","number"),""],
+ ["Prob. %",r=>inp(r,"prob","num","number"),""],["Estado",r=>sel(r,"estado",["Activo","En pausa","Descartado"]),""],
+ ["Notas",r=>inp(r,"notas"),""],
+];
+function renderTable(){
+  const rows=filtered();
+  document.getElementById('tbl').innerHTML="<tr>"+COLS.map(c=>`<th>${c[0]}</th>`).join("")+"</tr>"+
+    rows.map(r=>"<tr>"+COLS.map(c=>`<td class="${c[2]}">${c[1](r)}</td>`).join("")+"</tr>").join("");
+  document.querySelectorAll('#tbl .tbl-in').forEach(el=>{
+    const ev=el.tagName==='SELECT'?'change':'change';
+    el.addEventListener(ev,e=>save(+e.target.dataset.id,e.target.dataset.f,e.target.value));
+  });
+}
+let timer=null;
+async function save(id,field,value){
+  const row=state.find(x=>x.id===id);row[field]=value;
+  if(["prioridad","etapa","estado","valor","prob"].includes(field)){renderKpis();renderPipe();}
+  setConn("Guardando…","sav");
+  const who=document.getElementById('who').value.trim();
+  try{const upd=await api("/api/accounts/"+id,{method:"PUT",body:JSON.stringify({[field]:value,updated_by:who})});
+    Object.assign(row,upd);setConn("Guardado","ok");
+    document.getElementById('stamp').textContent="Última edición: "+new Date().toLocaleString('es-PE')+(who?(" · "+who):"");}
+  catch(e){setConn("Error al guardar","err");}
+}
+function renderAll(){renderKpis();renderPipe();renderTable();}
+function exportCSV(){
+  const heads=["N°","Prioridad","Sector","Razón social","Nombre comercial","RUC","Planta/ubicación","Residuos","Tipo","Tonelaje (t/mes)","Operador actual","Venc. contrato","Contacto operaciones","Cargo","Correo","Celular","Etapa","Fecha último contacto","Próxima acción","Fecha próxima acción","Responsable","Valor (S/ mes)","Prob %","Estado","Notas"];
+  const f=["id","prioridad","sector","razon","comercial","ruc","planta","residuos","tipo","tonelaje","operador","vencimiento","contacto","cargo","correo","celular","etapa","ultimo_contacto","proxima_accion","fecha_proxima","responsable","valor","prob","estado","notas"];
+  const esc=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const csv=[heads.map(esc).join(",")].concat(state.map(r=>f.map(k=>esc(r[k])).join(","))).join("\r\n");
+  const b=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="gestion_pisco_ica.csv";a.click();
+}
+['q','fSector','fPrio','fEtapa'].forEach(id=>document.getElementById(id).addEventListener('input',renderTable));
+document.getElementById('clear').onclick=()=>{['q','fSector','fPrio','fEtapa'].forEach(id=>document.getElementById(id).value='');renderTable();};
+document.getElementById('csv').onclick=exportCSV;
+document.getElementById('reload').onclick=loadData;
+document.getElementById('who').value=localStorage.getItem("who")||"";
+document.getElementById('who').addEventListener('change',e=>localStorage.setItem("who",e.target.value));
+boot();
+</script>
+</body>
+</html>
