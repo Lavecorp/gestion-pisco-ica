@@ -570,6 +570,7 @@ function showView(v){
   ["resumen","gestion","potencial","financiero"].forEach(x=>document.getElementById('v_'+x).classList.toggle('hidden',x!==v));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   renderAnalytics();
+  if(v==='gestion') setTimeout(syncTopScroll,30);
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.v));
 ['q','fSector','fPrio','fEtapa'].forEach(id=>document.getElementById(id).addEventListener('input',renderTable));
